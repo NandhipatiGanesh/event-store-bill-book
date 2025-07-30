@@ -533,6 +533,7 @@ iconCircle: {
   width: 36,
   height: 36,
   borderRadius: 18,
+   backgroundColor: '#f5f6f7',
   justifyContent: 'center',
   alignItems: 'center',
   marginRight: 12,
