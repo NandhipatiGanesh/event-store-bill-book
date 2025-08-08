@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "event-store-app",
+    "name": "srs",
     "slug": "event-store-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.jpg",
-    "scheme": "eventstoreapp",
+    "scheme": "srs",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
