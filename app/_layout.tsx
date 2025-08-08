@@ -1,33 +1,56 @@
-import { DMSans_400Regular, DMSans_700Bold, useFonts } from '@expo-google-fonts/dm-sans';
-import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+// app/_layout.tsx
+import 'react-native-reanimated'; // must be first
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { ClerkProvider } from '@clerk/clerk-expo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Redirect, Stack, usePathname } from 'expo-router';
+import { useEffect, useState } from 'react';
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function Gate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [ready, setReady] = useState(false);
+  const [done, setDone] = useState(false);
 
-  const [fontsLoaded] = useFonts({
-    DMSans_400Regular,
-    DMSans_700Bold,
-  });
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const v = await AsyncStorage.getItem('onboardingComplete');
+        if (!mounted) return;
+        setDone(v === 'true');
+      } finally {
+        if (mounted) setReady(true);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
-  // ❗️ Only render UI after fonts are loaded
-  if (!fontsLoaded) {
-    return null;
+  if (!ready) return null;
+
+  // if not done and we're not already on onboarding → go to onboarding
+  if (!done && !pathname.startsWith('/onboarding')) {
+    return <Redirect href="/onboarding" />;
   }
 
+  // if done and still on onboarding → go home
+  if (done && pathname.startsWith('/onboarding')) {
+    return <Redirect href="/" />;
+  }
+
+  return <>{children}</>;
+}
+
+export default function RootLayout() {
+  const pk = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
+
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <Stack>
-        <Stack.Screen  name="index" options={{ title: 'SRS Events',   headerTitleStyle: {
-              fontFamily: 'DMSans_700Bold', // 👈 DM Sans applied here
-              fontSize: 20,
-            }, }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <ClerkProvider publishableKey={pk}>
+      <Gate>
+        <Stack>
+          <Stack.Screen name="index" options={{ title: 'Home' }} />
+          <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+        </Stack>
+      </Gate>
+    </ClerkProvider>
   );
 }
