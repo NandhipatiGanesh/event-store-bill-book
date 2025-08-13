@@ -52,10 +52,9 @@ export default function TabLayout() {
      headerShown: false,
     tabBarShowLabel: false,
       tabBarStyle: {
-      position: 'absolute',
-      bottom: 20,
-      height: 60,
-      width: '80%',
+      height: 70,
+      width: '100%',
+      margin: 'auto',
       borderRadius: 30,
       backgroundColor: Colors[colorScheme ?? 'light'].background,
       shadowColor: '#000',

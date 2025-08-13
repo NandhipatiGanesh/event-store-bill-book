@@ -439,7 +439,7 @@ export default function ToolsListScreen() {
 
 // ✅ Styling
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, paddingTop: 0 },
+  container: { flex: 1, padding: 16, paddingTop: 0, paddingBottom: 0 },
   fab: {
     position: 'absolute',
     right: 16,
