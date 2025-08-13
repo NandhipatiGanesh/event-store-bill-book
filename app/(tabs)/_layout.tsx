@@ -3,7 +3,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Tabs } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Dimensions, View } from 'react-native';
 import AdminIcon from '../../assets/icons/AdminIcon';
 import ExploreIcon from '../../assets/icons/ExploreIcon';
 import HomeIcon from '../../assets/icons/HomeIcon';
@@ -15,7 +15,8 @@ type TabBarIconProps = {
 };
 
 type IconComponentType = React.ComponentType<{ size?: number; color?: string }>;
-
+const screenWidth = Dimensions.get('window').width;
+const tabBarWidth = screenWidth * 0.8;
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const [activeTab, setActiveTab] = useState('false');
@@ -53,8 +54,7 @@ export default function TabLayout() {
       tabBarStyle: {
       position: 'absolute',
       bottom: 20,
-      left: '50%',
-      transform: "translate(-50%, 10%)",
+      left: (screenWidth - tabBarWidth) / 2,
       right: 20,
       height: 60,
       width: '80%',
