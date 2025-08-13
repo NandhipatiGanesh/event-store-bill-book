@@ -1,28 +1,22 @@
 // app/onboarding/index.tsx
-import { useAuth, useOAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
+import { useAuth, useClerk, useOAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
-    Dimensions,
-    FlatList,
-    ImageBackground,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Dimensions,
+  FlatList,
+  ImageBackground,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-type Slide = {
-  key: string;
-  title: string;
-  subtitle: string;
-  image: any; // require(...) asset
-};
-
+type Slide = { key: string; title: string; subtitle: string; image: any };
 const SLIDES: Slide[] = [
   { key: '1', title: 'Discover events', subtitle: 'Find things to do around you, any day.', image: require('../../assets/firstscreen.png') },
   { key: '2', title: 'Save your favorites', subtitle: 'Keep track and get reminders.', image: require('../../assets/secondscreen.png') },
@@ -37,16 +31,18 @@ export default function Onboarding() {
   const listRef = useRef<FlatList<Slide>>(null);
   const [page, setPage] = useState(0);
 
-  // Email OTP UI
+  // Local state (hooks always run in the same order)
   const [emailStep, setEmailStep] = useState<EmailStep>('idle');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [emailMode, setEmailMode] = useState<EmailMode>(null); // which path we're on
+  const [emailMode, setEmailMode] = useState<EmailMode>(null);
 
+  // Clerk hooks (always run)
   const { isSignedIn } = useAuth();
+  const { setActive } = useClerk();
   const { startOAuthFlow: startGoogle } = useOAuth({ strategy: 'oauth_google' });
   const { startOAuthFlow: startFacebook } = useOAuth({ strategy: 'oauth_facebook' });
-  const { isLoaded: signInLoaded, signIn, setActive } = useSignIn();
+  const { isLoaded: signInLoaded, signIn } = useSignIn();
   const { isLoaded: signUpLoaded, signUp } = useSignUp();
 
   // ---------- paging ----------
@@ -59,7 +55,7 @@ export default function Onboarding() {
 
   const finish = useCallback(async () => {
     await AsyncStorage.setItem('onboardingComplete', 'true');
-    router.replace('/');
+    router.replace('/admin'); // change to '/(tabs)' if that's your home
   }, [router]);
 
   // ---------- OAuth ----------
@@ -84,25 +80,26 @@ export default function Onboarding() {
     try {
       setEmailStep('sending');
 
-      // 1) Try SIGN IN path
-      await signIn.create({ identifier: email.trim() });
+      // Try SIGN IN first
+      const attempt = await signIn.create({ identifier: email.trim() });
 
-      // Find the email_code factor to get emailAddressId (Clerk wants it)
-      const emailFactor =
-        (signIn.supportedFirstFactors || []).find(
-          (f: any) => f.strategy === 'email_code'
-        ) as { emailAddressId?: string } | undefined;
+      const emailFactor = (attempt.supportedFirstFactors || []).find(
+        (f: any) => f.strategy === 'email_code'
+      ) as { emailAddressId?: string } | undefined;
 
-      await signIn.prepareFirstFactor({
-        strategy: 'email_code',
-        // @ts-expect-error clerk types vary; sending id when present is safest
-        emailAddressId: emailFactor?.emailAddressId,
-      });
+      if (emailFactor?.emailAddressId) {
+        await signIn.prepareFirstFactor({
+          strategy: 'email_code',
+          emailAddressId: emailFactor.emailAddressId,
+        });
+      } else {
+        await signIn.prepareFirstFactor({ strategy: 'email_code' } as any);
+      }
 
       setEmailMode('signin');
       setEmailStep('verify');
     } catch (err: any) {
-      // 2) If identifier not found -> SIGN UP path
+      // If identifier not found → SIGN UP
       const notFound =
         err?.errors?.some((e: any) => e?.code === 'form_identifier_not_found') ||
         err?.status === 422;
@@ -123,7 +120,7 @@ export default function Onboarding() {
         setEmailStep('enter');
       }
     }
-  }, [email, signIn, signInLoaded, signUp, signUpLoaded]);
+  }, [email, signInLoaded, signUpLoaded, signIn, signUp]);
 
   const verifyEmailCode = useCallback(async () => {
     if (!signInLoaded || !signUpLoaded) return;
@@ -138,7 +135,7 @@ export default function Onboarding() {
         });
 
         if (res.status === 'complete' && res.createdSessionId) {
-          await setActive!({ session: res.createdSessionId });
+          await setActive({ session: res.createdSessionId });
           await finish();
           return;
         }
@@ -150,17 +147,16 @@ export default function Onboarding() {
 
       if (emailMode === 'signup') {
         const ver = await signUp.attemptEmailAddressVerification({ code: code.trim() });
-       
-              if (ver?.status === 'complete' && ver?.createdSessionId) {
-         await setActive!({ session: ver.createdSessionId });
-         await finish();
-         return;
-       }
 
-        // Case 2: some Clerk versions put the session id on `signUp` after verification
+        if (ver?.status === 'complete' && ver?.createdSessionId) {
+          await setActive({ session: ver.createdSessionId });
+          await finish();
+          return;
+        }
+
         const maybeSessionId = (signUp as any)?.createdSessionId;
         if (typeof maybeSessionId === 'string' && maybeSessionId.length > 0) {
-          await setActive!({ session: maybeSessionId });
+          await setActive({ session: maybeSessionId });
           await finish();
           return;
         }
@@ -168,20 +164,19 @@ export default function Onboarding() {
         console.warn('Sign-up email verification not complete:', ver);
         setEmailStep('verify');
         return;
-
       }
 
-      // if somehow no mode, reset
       setEmailStep('enter');
     } catch (e) {
       console.warn('verifyEmailCode failed:', e);
       setEmailStep('verify');
     }
-  }, [code, emailMode, finish, setActive, signIn, signInLoaded, signUp, signUpLoaded]);
+  }, [code, emailMode, signInLoaded, signUpLoaded, signIn, signUp, setActive, finish]);
 
   // ---------- Render ----------
   const renderItem = ({ item, index }: { item: Slide; index: number }) => {
     const isLast = index === SLIDES.length - 1;
+
     return (
       <ImageBackground source={item.image} style={styles.bg} imageStyle={styles.bgImage}>
         <View style={styles.overlay} />
@@ -200,7 +195,6 @@ export default function Onboarding() {
             </View>
           ) : (
             <View style={{ gap: 10 }}>
-              {/* OAuth */}
               <Pressable onPress={() => handleOAuth(startGoogle)} style={styles.btn}>
                 <Text style={styles.btnText}>Continue with Google</Text>
               </Pressable>
@@ -208,13 +202,7 @@ export default function Onboarding() {
                 <Text style={styles.btnText}>Continue with Facebook</Text>
               </Pressable>
 
-              {/* Email OTP */}
-              {emailStep === 'idle' && (
-                <Pressable onPress={() => setEmailStep('enter')} style={[styles.btn, styles.ghost]}>
-                  <Text style={[styles.btnText, styles.ghostText]}>Sign in with Email</Text>
-                </Pressable>
-              )}
-
+              {/* Email - enter */}
               {(emailStep === 'enter' || emailStep === 'sending') && (
                 <View style={{ gap: 8 }}>
                   <TextInput
@@ -226,21 +214,19 @@ export default function Onboarding() {
                     placeholderTextColor="rgba(255,255,255,0.8)"
                     style={styles.input}
                   />
-                  {(() => {
-                    const isSending = emailStep === 'sending';
-                    return (
-                      <Pressable
-                        onPress={sendEmailCode}
-                        disabled={!email.trim() || isSending}
-                        style={[styles.btn, isSending && styles.disabled]}
-                      >
-                        <Text style={styles.btnText}>{isSending ? 'Sending…' : 'Send code'}</Text>
-                      </Pressable>
-                    );
-                  })()}
+                  <Pressable
+                    onPress={sendEmailCode}
+                    disabled={!email.trim() || emailStep === 'sending'}
+                    style={[styles.btn, emailStep === 'sending' && styles.disabled]}
+                  >
+                    <Text style={styles.btnText}>
+                      {emailStep === 'sending' ? 'Sending…' : 'Send code'}
+                    </Text>
+                  </Pressable>
                 </View>
               )}
 
+              {/* Email - verify */}
               {(emailStep === 'verify' || emailStep === 'verifying') && (
                 <View style={{ gap: 8 }}>
                   <TextInput
@@ -251,19 +237,22 @@ export default function Onboarding() {
                     placeholderTextColor="rgba(255,255,255,0.8)"
                     style={styles.input}
                   />
-                  {(() => {
-                    const isVerifying = emailStep === 'verifying';
-                    return (
-                      <Pressable
-                        onPress={verifyEmailCode}
-                        disabled={!code.trim() || isVerifying}
-                        style={[styles.btn, isVerifying && styles.disabled]}
-                      >
-                        <Text style={styles.btnText}>{isVerifying ? 'Verifying…' : 'Verify & continue'}</Text>
-                      </Pressable>
-                    );
-                  })()}
+                  <Pressable
+                    onPress={verifyEmailCode}
+                    disabled={!code.trim() || emailStep === 'verifying'}
+                    style={[styles.btn, emailStep === 'verifying' && styles.disabled]}
+                  >
+                    <Text style={styles.btnText}>
+                      {emailStep === 'verifying' ? 'Verifying…' : 'Verify & continue'}
+                    </Text>
+                  </Pressable>
                 </View>
+              )}
+
+              {emailStep === 'idle' && (
+                <Pressable onPress={() => setEmailStep('enter')} style={[styles.btn, styles.ghost]}>
+                  <Text style={[styles.btnText, styles.ghostText]}>Sign in with Email</Text>
+                </Pressable>
               )}
 
               {isSignedIn ? (
@@ -313,13 +302,13 @@ const styles = StyleSheet.create({
   bgImage: { resizeMode: 'cover' },
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
   content: { padding: 24, gap: 10, paddingBottom: 40 },
-  title: { color: '#fff', fontSize: 28, fontWeight: '800' },
-  subtitle: { color: '#fff', fontSize: 16, opacity: 0.9 },
+  title: { color: '#fff', fontSize: 28, fontFamily: 'DMSans_700Bold' },
+  subtitle: { color: '#fff', fontSize: 16, opacity: 0.9, fontFamily: 'DMSans_400Regular' },
   row: { flexDirection: 'row', gap: 10 },
   btn: { backgroundColor: '#111', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center' },
   secondary: { backgroundColor: '#333' },
   disabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontWeight: '700' },
+  btnText: { color: '#fff', fontFamily: 'DMSans_700Bold' },
   ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.9)' },
   ghostText: { color: '#fff' },
   dots: { position: 'absolute', bottom: 16, alignSelf: 'center', flexDirection: 'row', gap: 6 },
@@ -333,5 +322,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
     color: '#fff',
+    fontFamily: 'DMSans_500Medium',
   },
 });

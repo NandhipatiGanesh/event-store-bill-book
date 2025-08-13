@@ -1,10 +1,16 @@
-// app/_layout.tsx
-import 'react-native-reanimated'; // must be first
-
 import { ClerkProvider } from '@clerk/clerk-expo';
+import { tokenCache } from '@clerk/clerk-expo/token-cache';
+import {
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_700Bold,
+  useFonts,
+} from '@expo-google-fonts/dm-sans';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect, Stack, usePathname } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
+import 'react-native-reanimated';
 
 function Gate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -26,29 +32,33 @@ function Gate({ children }: { children: React.ReactNode }) {
   }, []);
 
   if (!ready) return null;
-
-  // if not done and we're not already on onboarding → go to onboarding
-  if (!done && !pathname.startsWith('/onboarding')) {
-    return <Redirect href="/onboarding" />;
-  }
-
-  // if done and still on onboarding → go home
-  if (done && pathname.startsWith('/onboarding')) {
-    return <Redirect href="/" />;
-  }
+  if (!done && !pathname.startsWith('/onboarding')) return <Redirect href="/onboarding" />;
+  if (done && pathname.startsWith('/onboarding')) return <Redirect href="/" />;
 
   return <>{children}</>;
 }
 
 export default function RootLayout() {
-  const pk = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
+  const [fontsLoaded] = useFonts({
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return <View style={{ flex: 1, backgroundColor: 'black' }} />;
+  }
+
+  const pk = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+  if (!pk) throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY');
 
   return (
-    <ClerkProvider publishableKey={pk}>
+    <ClerkProvider publishableKey={pk} tokenCache={tokenCache}>
       <Gate>
-        <Stack>
-          <Stack.Screen name="index" options={{ title: 'Home' }} />
-          <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="onboarding/index" />
+          <Stack.Screen name="+not-found" />
         </Stack>
       </Gate>
     </ClerkProvider>

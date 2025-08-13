@@ -1,10 +1,6 @@
 //File : /app/screens/ToolsListScreen.tsx
-
-
-
-
 import * as MediaLibrary from 'expo-media-library';
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -443,11 +439,11 @@ export default function ToolsListScreen() {
 
 // ✅ Styling
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: { flex: 1, padding: 16, paddingTop: 0 },
   fab: {
     position: 'absolute',
     right: 16,
-    bottom: 16,
+    bottom: 90,
     backgroundColor: '#000',
     borderRadius: 1040,
     paddingHorizontal: 32,
