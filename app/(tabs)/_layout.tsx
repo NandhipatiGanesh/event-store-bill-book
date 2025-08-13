@@ -2,6 +2,7 @@
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { Tabs } from 'expo-router';
+import { useState } from 'react';
 import { View } from 'react-native';
 import AdminIcon from '../../assets/icons/AdminIcon';
 import ExploreIcon from '../../assets/icons/ExploreIcon';
@@ -17,28 +18,31 @@ type IconComponentType = React.ComponentType<{ size?: number; color?: string }>;
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const [activeTab, setActiveTab] = useState('false');
 
    const wrapIcon =
   (IconComponent: IconComponentType) =>
   ({ color, focused }: TabBarIconProps) =>
     (
-      <View style={{
-        flexDirection: 'row',
-        width: 24,
-        height: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        position: 'absolute'
-      }}>
-        <IconComponent 
-          size={24} 
-          color={focused 
-            ? Colors[colorScheme ?? 'light'].tint 
-            : Colors[colorScheme ?? 'light'].tabIconDefault
-          } 
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingHorizontal: 8,
+        }}
+      >
+        <IconComponent
+          size={24}
+          color={
+            focused
+              ? Colors[colorScheme ?? 'light'].tint
+              : Colors[colorScheme ?? 'light'].tabIconDefault
+          }
         />
       </View>
     );
+
 
   return (
       <Tabs
@@ -46,20 +50,14 @@ export default function TabLayout() {
     // ... other options
      headerShown: false,
     tabBarShowLabel: false,
-    tabBarItemStyle: {
-      padding: 0,
-      margin: 0,
-      minHeight: 40,
-      minWidth: 0,
-      position: 'relative',
-      flexDirection: 'row',
-    },
       tabBarStyle: {
       position: 'absolute',
       bottom: 20,
-      left: 20,
+      left: '50%',
+      transform: "translate(-50%, 10%)",
       right: 20,
       height: 60,
+      width: '80%',
       borderRadius: 30,
       backgroundColor: Colors[colorScheme ?? 'light'].background,
       shadowColor: '#000',
@@ -75,6 +73,7 @@ export default function TabLayout() {
       padding: 0,
     }
   }}
+
 >
       <Tabs.Screen
         name="index"
@@ -85,6 +84,8 @@ export default function TabLayout() {
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 8,
+        borderRadius: 50,
+        backgroundColor: activeTab === 'index' ? '#f0f8ff' : 'transparent',
       },
     }}
       />
@@ -98,6 +99,8 @@ export default function TabLayout() {
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 8,
+        borderRadius: 50,
+        backgroundColor: activeTab === 'explore' ? '#f0f8ff' : 'transparent',
       },
         }}
       />
@@ -112,9 +115,13 @@ export default function TabLayout() {
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 8,
+        borderRadius: 50,
+        backgroundColor: activeTab === 'admin-login' ? '#f0f8ff' : 'transparent',
       },
         }}
       />
+            
+
     </Tabs>
   );
 }
