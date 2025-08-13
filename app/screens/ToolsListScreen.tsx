@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 16,
-    bottom: 90,
+    bottom: 60,
     backgroundColor: '#000',
     borderRadius: 1040,
     paddingHorizontal: 32,
